@@ -1,0 +1,82 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: cases
+    // Document ID: [auto-generated]
+    // Fields:
+    //   - userId: string (required) - UID of the volunteer
+    //   - timestamp: number (required) - Timestamp of the case
+    //   - symptoms: map (required) - Map containing fever, cough, difficultyBreathing, age
+    //   - diagnosis: map (optional) - Map containing likelyDiagnosis, severity, confidence, recommendedAction, explanation
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidSymptoms(symptoms) {
+      return symptoms is map &&
+             symptoms.keys().hasAll(['fever', 'cough', 'difficultyBreathing', 'age']) &&
+             symptoms.fever is bool &&
+             symptoms.cough is bool &&
+             symptoms.difficultyBreathing is bool &&
+             symptoms.age in ['child', 'adult'];
+    }
+
+    function isValidDiagnosis(diagnosis) {
+      return diagnosis == null || (
+             diagnosis is map &&
+             diagnosis.keys().hasAll(['likelyDiagnosis', 'severity', 'confidence', 'recommendedAction']) &&
+             diagnosis.likelyDiagnosis is string && diagnosis.likelyDiagnosis.size() < 100 &&
+             diagnosis.severity in ['Mild', 'Urgent', 'Emergency'] &&
+             diagnosis.confidence in ['Low', 'Medium', 'High'] &&
+             diagnosis.recommendedAction is string && diagnosis.recommendedAction.size() < 500 &&
+             (!('explanation' in diagnosis) || (diagnosis.explanation is string && diagnosis.explanation.size() < 1000))
+      );
+    }
+
+    function isValidHealthCase(data) {
+      return hasRequiredFields(['userId', 'timestamp', 'symptoms']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.timestamp is number &&
+             isValidSymptoms(data.symptoms) &&
+             (!('diagnosis' in data) || isValidDiagnosis(data.diagnosis));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /cases/{caseId} {
+      // Users can only read their own cases
+      allow read: if isOwner(resource.data.userId);
+      
+      // Users can create cases if they are authenticated and the data is valid
+      allow create: if isAuthenticated() && isValidHealthCase(request.resource.data);
+      
+      // Users can update their own cases (though typically they just create new ones)
+      allow update: if isOwner(resource.data.userId) && 
+                       isValidHealthCase(request.resource.data) &&
+                       request.resource.data.userId == resource.data.userId; // userId is immutable
+                       
+      // Users can delete their own cases
+      allow delete: if isOwner(resource.data.userId);
+    }
+  }
+}

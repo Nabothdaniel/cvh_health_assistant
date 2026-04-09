@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "HealthCase": {
+      "title": "HealthCase",
+      "description": "A health screening case recorded by a Community Health Volunteer.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the volunteer who recorded this case."
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "The timestamp when the case was recorded."
+        },
+        "symptoms": {
+          "type": "object",
+          "properties": {
+            "fever": { "type": "boolean" },
+            "cough": { "type": "boolean" },
+            "difficultyBreathing": { "type": "boolean" },
+            "age": { "type": "string", "enum": ["child", "adult"] }
+          },
+          "required": ["fever", "cough", "difficultyBreathing", "age"]
+        },
+        "diagnosis": {
+          "type": "object",
+          "properties": {
+            "likelyDiagnosis": { "type": "string" },
+            "severity": { "type": "string", "enum": ["Mild", "Urgent", "Emergency"] },
+            "confidence": { "type": "string", "enum": ["Low", "Medium", "High"] },
+            "recommendedAction": { "type": "string" },
+            "explanation": { "type": "string" }
+          },
+          "required": ["likelyDiagnosis", "severity", "confidence", "recommendedAction"]
+        }
+      },
+      "required": ["userId", "timestamp", "symptoms"]
+    }
+  },
+  "firestore": {
+    "/cases/{caseId}": {
+      "schema": {
+        "$ref": "#/entities/HealthCase"
+      },
+      "description": "Collection of health screening cases."
+    }
+  }
+}

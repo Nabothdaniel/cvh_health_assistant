@@ -1,0 +1,5 @@
+{
+  "name": "CHV Health Assistant",
+  "description": "A mobile-friendly tool for Community Health Volunteers to screen for malaria, pneumonia, and malnutrition using AI.",
+  "requestFramePermissions": ["camera"]
+}
